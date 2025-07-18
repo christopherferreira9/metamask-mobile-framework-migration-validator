@@ -2,8 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: 'export',
-  // Remove the distDir setting as it's causing confusion
-  basePath: process.env.GITHUB_ACTIONS ? '/metamask-mobile-framework-migration-validator' : '',
+  basePath: '/metamask-mobile-framework-migration-validator',
+  reactStrictMode: true,
   images: {
     unoptimized: true,
   },

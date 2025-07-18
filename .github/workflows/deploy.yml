@@ -31,7 +31,14 @@ jobs:
           static_site_generator: next
 
       - name: Build with Next.js 🏗️
-        run: npx next build
+        run: yarn build
+
+      - name: Debug directory structure
+        run: |
+          echo "Current directory structure:"
+          ls -la
+          echo "Content of out directory:"
+          ls -la out || echo "out directory not found"
 
       - name: Upload artifact 📡
         uses: actions/upload-pages-artifact@v3

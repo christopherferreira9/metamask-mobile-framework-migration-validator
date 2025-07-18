@@ -2,8 +2,15 @@ import { parseGitHubPrUrl } from '@/utils/prValidator';
 import { NextRequest } from 'next/server';
 import { Octokit } from 'octokit';
 
-// Initialize Octokit without authentication
-const octokit = new Octokit();
+// Initialize Octokit with auth token if available
+const octokit = new Octokit(
+  process.env.GITHUB_TOKEN 
+    ? { auth: process.env.GITHUB_TOKEN }
+    : {}
+);
+
+// Log token status for debugging
+console.log('GitHub token available:', Boolean(process.env.GITHUB_TOKEN));
 
 // Valid types that should precede getter methods
 const VALID_GETTER_TYPES = [
@@ -43,10 +50,14 @@ export async function POST(request: NextRequest) {
   const encoder = new TextEncoder();
 
   try {
+    console.log('Stream validation API called');
     const body = await request.json();
     const { prLink } = body;
     
+    console.log('PR Link received:', prLink);
+    
     if (!prLink) {
+      console.log('No PR link provided');
       return new Response(
         encoder.encode(JSON.stringify({ error: 'PR link is required' })),
         { status: 400 }
@@ -67,6 +78,7 @@ export async function POST(request: NextRequest) {
       writer.close();
     });
 
+    console.log('Returning stream response');
     // Return the readable stream to the client
     return new Response(stream.readable, {
       headers: {
@@ -91,8 +103,11 @@ async function processPrValidation(prLink: string, writer: WritableStreamDefault
   const encoder = new TextEncoder();
   
   try {
+    console.log('Starting PR validation process');
+    
     // Parse GitHub PR URL
     const { owner, repo, pullNumber } = parseGitHubPrUrl(prLink);
+    console.log('Parsed PR info:', { owner, repo, pullNumber });
     
     // Send init message
     writer.write(encoder.encode(JSON.stringify({ 
@@ -100,6 +115,7 @@ async function processPrValidation(prLink: string, writer: WritableStreamDefault
       message: 'Starting PR validation...' 
     }) + '\n'));
     
+    console.log('Fetching PR data from GitHub API');
     // Get the PR data
     const { data: pullRequest } = await octokit.rest.pulls.get({
       owner,
@@ -107,6 +123,7 @@ async function processPrValidation(prLink: string, writer: WritableStreamDefault
       pull_number: pullNumber
     });
     
+    console.log('PR data fetched successfully');
     // Send PR info
     writer.write(encoder.encode(JSON.stringify({ 
       type: 'pr_info',

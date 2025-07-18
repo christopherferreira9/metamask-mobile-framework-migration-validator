@@ -1,8 +1,11 @@
 import { Octokit } from 'octokit';
 
-// Initialize Octokit without authentication for public repos
-// For private repos, you'd need to provide an auth token
-const octokit = new Octokit();
+// Initialize Octokit with auth token if available
+const octokit = new Octokit(
+  process.env.GITHUB_TOKEN 
+    ? { auth: process.env.GITHUB_TOKEN }
+    : {}
+);
 
 interface PrInfo {
   owner: string;

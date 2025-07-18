@@ -34,6 +34,12 @@ const CHECK_DESCRIPTIONS = {
   'getter-type': 'Getter methods must have proper type prefix'
 };
 
+// Get the base URL depending on environment
+const getApiUrl = (path: string) => {
+  // No need for basePath with Vercel deployment
+  return path;
+};
+
 const PRValidator: React.FC = () => {
   const [prLink, setPrLink] = useState<string>('');
   const [results, setResults] = useState<ValidationResult | null>(null);
@@ -129,7 +135,7 @@ const PRValidator: React.FC = () => {
     abortControllerRef.current = new AbortController();
     
     try {
-      const response = await fetch('/api/validate/stream', {
+      const response = await fetch(getApiUrl('/api/validate/stream'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

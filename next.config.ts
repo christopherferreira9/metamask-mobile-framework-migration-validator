@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: 'export',
+  distDir: 'dist',
   basePath: process.env.GITHUB_ACTIONS ? '/metamask-mobile-framework-migration-validator' : '',
   images: {
     unoptimized: true,

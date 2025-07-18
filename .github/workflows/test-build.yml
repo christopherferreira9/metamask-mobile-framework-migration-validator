@@ -1,0 +1,39 @@
+name: Test Build Process
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'yarn'
+      
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+      
+      - name: Show Next.js config
+        run: cat next.config.ts
+      
+      - name: Build with Next.js
+        run: yarn build
+      
+      - name: Directory structure after build
+        run: |
+          echo "Root directory:"
+          ls -la
+          
+          echo "\nOutput directories check:"
+          [ -d "./out" ] && echo "out directory exists" && ls -la ./out
+          [ -d "./dist" ] && echo "dist directory exists" && ls -la ./dist
+          [ -d "./.next" ] && echo ".next directory exists" && ls -la ./.next
+          
+          echo "\nCheck for exported content:"
+          find . -type f \( -name "*.html" -o -name "*.js" -o -name "*.css" \) | grep -v "node_modules" | sort 

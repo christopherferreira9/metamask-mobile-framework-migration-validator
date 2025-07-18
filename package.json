@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "next build && (test -d ./out || mkdir -p ./out) && (test -d ./dist && cp -r ./dist/* ./out/ || echo 'Using default output')",
     "start": "next start",
     "lint": "next lint"
   },

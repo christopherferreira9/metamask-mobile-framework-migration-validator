@@ -251,6 +251,16 @@ function validateFileContent(file: any) {
       });
     }
     
+    // Check for withFixtures import without /framework/fixtures in the path
+    if (cleanLine.includes('import') && cleanLine.includes('withFixtures') && !cleanLine.includes('/framework/fixtures')) {
+      issues.push({
+        file: file.filename,
+        line: getOriginalLineNumber(lines, index),
+        importStatement: cleanLine,
+        checkType: 'fixtures-framework'
+      });
+    }
+    
     // Check for getter methods without proper type prefixes
     // Looking for patterns like "get something()" but not when followed by a valid return type
     const getterMethodRegex = /\bget\s+\w+\s*\(/;
@@ -289,7 +299,85 @@ function validateFileContent(file: any) {
     }
   });
   
+  // Check for test files that need withFixtures in each it() block
+  if (file.filename.endsWith('.spec.ts')) {
+    validateTestFile(file, lines, issues);
+  }
+  
   return issues;
+}
+
+/**
+ * Validate test files to ensure each it() block has a withFixtures reference
+ * @param file The file object
+ * @param lines The lines from the patch
+ * @param issues The issues array to add to
+ */
+function validateTestFile(file: any, lines: string[], issues: any[]): void {
+  // Get all added lines that contain 'it(' or 'it.only(' or similar test declarations
+  const testBlockLines = lines.filter(line => 
+    line.startsWith('+') && 
+    !line.startsWith('+++') && 
+    /\bit(\.|)(\w+|)\s*\(/.test(line.substring(1).trim())
+  );
+  
+  // For each test block, check if it has a withFixtures reference within a reasonable range
+  testBlockLines.forEach(testLine => {
+    const lineIndex = lines.indexOf(testLine);
+    const testLineClean = testLine.substring(1).trim();
+    
+    // Find the closing parenthesis or the end of the block
+    // This is a simplified approach - in a real implementation, you might need more sophisticated parsing
+    let foundWithFixtures = false;
+    let blockEndFound = false;
+    let currentLine = lineIndex;
+    let blockDepth = 0;
+    
+    // Count opening braces in the test line itself
+    for (const char of testLineClean) {
+      if (char === '{') blockDepth++;
+      if (char === '}') blockDepth--;
+    }
+    
+    // Look ahead for withFixtures until we find the end of the block
+    while (currentLine < lines.length - 1 && !blockEndFound && blockDepth >= 0) {
+      currentLine++;
+      const nextLine = lines[currentLine];
+      
+      // Skip lines that aren't added in the PR
+      if (!nextLine.startsWith('+') || nextLine.startsWith('+++')) continue;
+      
+      const cleanNextLine = nextLine.substring(1).trim();
+      
+      // Check for withFixtures reference
+      if (cleanNextLine.includes('withFixtures')) {
+        foundWithFixtures = true;
+      }
+      
+      // Track block depth
+      for (const char of cleanNextLine) {
+        if (char === '{') blockDepth++;
+        if (char === '}') {
+          blockDepth--;
+          // If we've closed the initial block, we're done
+          if (blockDepth < 0) {
+            blockEndFound = true;
+            break;
+          }
+        }
+      }
+    }
+    
+    // If we didn't find withFixtures in the test block, report an issue
+    if (!foundWithFixtures) {
+      issues.push({
+        file: file.filename,
+        line: getOriginalLineNumber(lines, lines.indexOf(testLine)),
+        importStatement: testLineClean,
+        checkType: 'test-withfixtures'
+      });
+    }
+  });
 }
 
 function getOriginalLineNumber(lines: string[], addedLineIndex: number) {

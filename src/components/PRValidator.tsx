@@ -6,7 +6,7 @@ interface Issue {
   file: string;
   line: number | string;
   importStatement: string;
-  checkType: 'assertions-framework' | 'assertions-no-ts' | 'gestures-framework' | 'getter-type';
+  checkType: 'assertions-framework' | 'assertions-no-ts' | 'gestures-framework' | 'getter-type' | 'fixtures-framework' | 'test-withfixtures';
 }
 
 interface PrInfo {
@@ -31,7 +31,9 @@ const CHECK_DESCRIPTIONS = {
   'assertions-framework': 'Assertions import must include /framework path',
   'assertions-no-ts': 'Assertions import should not include .ts extension',
   'gestures-framework': 'Gestures import must include /framework path',
-  'getter-type': 'Getter methods must have proper type prefix'
+  'getter-type': 'Getter methods must have proper type prefix',
+  'fixtures-framework': 'withFixtures import must include /framework/fixtures path',
+  'test-withfixtures': 'Test files must use withFixtures in each it() block'
 };
 
 // Get the base URL depending on environment
@@ -576,6 +578,52 @@ const PRValidator: React.FC = () => {
                                     <span className="text-sm font-medium">Found issues:</span>
                                     <ul className="list-disc pl-5 space-y-1 mt-1 text-sm">
                                       {getIssuesByCheckType(file, 'getter-type').map((issue, idx) => (
+                                        <li key={idx}>
+                                          Line {issue.line}: <code className="bg-amber-50 p-1 rounded">{issue.importStatement}</code>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Fixtures framework path check */}
+                              <div className="mb-2">
+                                <div className="flex items-center">
+                                  <span className={`mr-2 ${hasIssuesForCheckType(file, 'fixtures-framework') ? 'text-amber-600' : 'text-green-600'}`}>
+                                    {hasIssuesForCheckType(file, 'fixtures-framework') ? '⚠️' : '✓'}
+                                  </span>
+                                  <span>{CHECK_DESCRIPTIONS['fixtures-framework']}</span>
+                                </div>
+                                
+                                {hasIssuesForCheckType(file, 'fixtures-framework') && (
+                                  <div className="mt-2 pl-6">
+                                    <span className="text-sm font-medium">Found issues:</span>
+                                    <ul className="list-disc pl-5 space-y-1 mt-1 text-sm">
+                                      {getIssuesByCheckType(file, 'fixtures-framework').map((issue, idx) => (
+                                        <li key={idx}>
+                                          Line {issue.line}: <code className="bg-amber-50 p-1 rounded">{issue.importStatement}</code>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Test withFixtures check */}
+                              <div className="mb-2">
+                                <div className="flex items-center">
+                                  <span className={`mr-2 ${hasIssuesForCheckType(file, 'test-withfixtures') ? 'text-amber-600' : 'text-green-600'}`}>
+                                    {hasIssuesForCheckType(file, 'test-withfixtures') ? '⚠️' : '✓'}
+                                  </span>
+                                  <span>{CHECK_DESCRIPTIONS['test-withfixtures']}</span>
+                                </div>
+                                
+                                {hasIssuesForCheckType(file, 'test-withfixtures') && (
+                                  <div className="mt-2 pl-6">
+                                    <span className="text-sm font-medium">Found issues:</span>
+                                    <ul className="list-disc pl-5 space-y-1 mt-1 text-sm">
+                                      {getIssuesByCheckType(file, 'test-withfixtures').map((issue, idx) => (
                                         <li key={idx}>
                                           Line {issue.line}: <code className="bg-amber-50 p-1 rounded">{issue.importStatement}</code>
                                         </li>

@@ -370,9 +370,40 @@ function validateTestFile(file: any, lines: string[], issues: any[]): void {
     
     // If we didn't find withFixtures in the test block, report an issue
     if (!foundWithFixtures) {
+      // Calculate the actual line number in the file
+      // First find the hunk header that precedes this line
+      let hunkHeaderIndex = lineIndex;
+      while (hunkHeaderIndex >= 0) {
+        if (lines[hunkHeaderIndex].startsWith('@@')) {
+          break;
+        }
+        hunkHeaderIndex--;
+      }
+      
+      let lineNumber: number | string = 'N/A';
+      
+      if (hunkHeaderIndex >= 0) {
+        // Parse the hunk header to get the starting line number
+        const hunkHeader = lines[hunkHeaderIndex];
+        const match = hunkHeader.match(/@@ -\d+,\d+ \+(\d+),\d+ @@/);
+        if (match) {
+          const hunkStartLine = parseInt(match[1], 10);
+          
+          // Count lines from hunk start to our test line
+          let linesAfterHunk = 0;
+          for (let i = hunkHeaderIndex + 1; i < lineIndex; i++) {
+            if (!lines[i].startsWith('-')) {
+              linesAfterHunk++;
+            }
+          }
+          
+          lineNumber = hunkStartLine + linesAfterHunk - 1;
+        }
+      }
+      
       issues.push({
         file: file.filename,
-        line: getOriginalLineNumber(lines, lines.indexOf(testLine)),
+        line: lineNumber,
         importStatement: testLineClean,
         checkType: 'test-withfixtures'
       });

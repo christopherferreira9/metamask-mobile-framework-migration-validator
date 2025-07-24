@@ -17,7 +17,7 @@ interface Issue {
   file: string;
   line: number | string;
   importStatement: string;
-  checkType: 'assertions-framework' | 'assertions-no-ts' | 'gestures-framework' | 'getter-type' | 'fixtures-framework' | 'test-withfixtures' | 'matchers-framework';
+  checkType: 'assertions-framework' | 'assertions-no-ts' | 'gestures-framework' | 'getter-type' | 'fixtures-framework' | 'test-withfixtures' | 'matchers-framework' | 'fixture-utils-framework';
 }
 
 interface ValidationResult {
@@ -42,6 +42,13 @@ const VALID_GETTER_TYPES = [
   'SystemElement', 
   'DeviceLaunchAppConfig', 
   'DetoxMatcher'
+];
+
+// Fixture-related imports that must come from /framework
+const FIXTURE_IMPORTS = [
+  'FixtureBuilder',
+  'FixtureHelper',
+  'FixtureUtils'
 ];
 
 /**
@@ -95,6 +102,14 @@ const validateFileContent = (file: any): Issue[] => {
   
   // Only process files with content (skip binary files or removed files)
   if (!file.patch) {
+    return issues;
+  }
+  
+  // Only run checks on files under the e2e/ directory
+  const isE2eFile = file.filename.startsWith('e2e/');
+  
+  // If not an e2e file, return empty issues array
+  if (!isE2eFile) {
     return issues;
   }
   
@@ -154,6 +169,19 @@ const validateFileContent = (file: any): Issue[] => {
         importStatement: cleanLine,
         checkType: 'matchers-framework'
       });
+    }
+    
+    // Check for fixture-related imports without /framework in the path
+    for (const fixtureImport of FIXTURE_IMPORTS) {
+      if (cleanLine.includes('import') && cleanLine.includes(fixtureImport) && !cleanLine.includes('/framework')) {
+        issues.push({
+          file: file.filename,
+          line: getOriginalLineNumber(lines, index),
+          importStatement: cleanLine,
+          checkType: 'fixture-utils-framework'
+        });
+        break; // Only add one issue per line even if multiple fixture imports are found
+      }
     }
     
     // Check for getter methods without proper type prefixes

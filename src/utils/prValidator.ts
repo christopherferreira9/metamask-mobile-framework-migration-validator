@@ -17,7 +17,7 @@ interface Issue {
   file: string;
   line: number | string;
   importStatement: string;
-  checkType: 'assertions-framework' | 'assertions-no-ts' | 'gestures-framework' | 'getter-type' | 'fixtures-framework' | 'test-withfixtures';
+  checkType: 'assertions-framework' | 'assertions-no-ts' | 'gestures-framework' | 'getter-type' | 'fixtures-framework' | 'test-withfixtures' | 'matchers-framework';
 }
 
 interface ValidationResult {
@@ -143,6 +143,16 @@ const validateFileContent = (file: any): Issue[] => {
         line: getOriginalLineNumber(lines, index),
         importStatement: cleanLine,
         checkType: 'fixtures-framework'
+      });
+    }
+    
+    // Check for Matchers import without /framework in the path
+    if (cleanLine.includes('import') && cleanLine.includes('Matchers') && !cleanLine.includes('/framework')) {
+      issues.push({
+        file: file.filename,
+        line: getOriginalLineNumber(lines, index),
+        importStatement: cleanLine,
+        checkType: 'matchers-framework'
       });
     }
     

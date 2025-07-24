@@ -33,6 +33,11 @@ const ValidationRules: React.FC = () => {
       description: 'All withFixtures imports must come from /framework/fixtures. This ensures that the correct framework version of the fixtures module is used.'
     },
     {
+      id: 'matchers-framework',
+      title: 'Matchers Framework Path',
+      description: 'All Matchers imports must include the /framework path. This ensures that the correct framework version of the Matchers module is used.'
+    },
+    {
       id: 'getter-type',
       title: 'Getter Method Types',
       description: 'Getter methods must have proper type prefixes or return type annotations. Valid types include DetoxElement, TappableElement, TypableElement, WebElement, IndexableNativeElement, NativeElement, SystemElement, DeviceLaunchAppConfig, DetoxMatcher, or Promise versions of these types.'

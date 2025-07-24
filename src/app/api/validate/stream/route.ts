@@ -261,6 +261,16 @@ function validateFileContent(file: any) {
       });
     }
     
+    // Check for Matchers import without /framework in the path
+    if (cleanLine.includes('import') && cleanLine.includes('Matchers') && !cleanLine.includes('/framework')) {
+      issues.push({
+        file: file.filename,
+        line: getOriginalLineNumber(lines, index),
+        importStatement: cleanLine,
+        checkType: 'matchers-framework'
+      });
+    }
+    
     // Check for getter methods without proper type prefixes
     // Looking for patterns like "get something()" but not when followed by a valid return type
     const getterMethodRegex = /\bget\s+\w+\s*\(/;

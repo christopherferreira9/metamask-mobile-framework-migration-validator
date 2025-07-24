@@ -38,6 +38,11 @@ const ValidationRules: React.FC = () => {
       description: 'All Matchers imports must include the /framework path. This ensures that the correct framework version of the Matchers module is used.'
     },
     {
+      id: 'fixture-utils-framework',
+      title: 'Fixture Utilities Framework Path',
+      description: 'All fixture utilities (FixtureBuilder, FixtureHelper, FixtureUtils) must include the /framework path. This ensures that the correct framework versions of these utilities are used.'
+    },
+    {
       id: 'getter-type',
       title: 'Getter Method Types',
       description: 'Getter methods must have proper type prefixes or return type annotations. Valid types include DetoxElement, TappableElement, TypableElement, WebElement, IndexableNativeElement, NativeElement, SystemElement, DeviceLaunchAppConfig, DetoxMatcher, or Promise versions of these types.'
@@ -108,6 +113,21 @@ const ValidationRules: React.FC = () => {
                   <div className="ml-3">
                     <p className="text-sm text-blue-700">
                       These rules help ensure consistent usage of the framework modules across the codebase and proper test implementation.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-gray-50 border-l-4 border-gray-500 p-4 rounded mt-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-gray-700">
+                      <strong>Note:</strong> Validation checks are only applied to files in the <code className="bg-gray-200 px-1 rounded">e2e/</code> directory. Other files are displayed in the list but are not validated.
                     </p>
                   </div>
                 </div>

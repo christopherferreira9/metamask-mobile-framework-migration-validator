@@ -6,7 +6,7 @@ interface Issue {
   file: string;
   line: number | string;
   importStatement: string;
-  checkType: 'assertions-framework' | 'assertions-no-ts' | 'gestures-framework' | 'getter-type' | 'fixtures-framework' | 'test-withfixtures' | 'matchers-framework';
+  checkType: 'assertions-framework' | 'assertions-no-ts' | 'gestures-framework' | 'getter-type' | 'fixtures-framework' | 'test-withfixtures' | 'matchers-framework' | 'fixture-utils-framework';
 }
 
 interface PrInfo {
@@ -34,7 +34,8 @@ const CHECK_DESCRIPTIONS = {
   'getter-type': 'Getter methods must have proper type prefix',
   'fixtures-framework': 'withFixtures import must include /framework/fixtures path',
   'test-withfixtures': 'Test files must use withFixtures in each it() block',
-  'matchers-framework': 'Matchers import must include /framework path'
+  'matchers-framework': 'Matchers import must include /framework path',
+  'fixture-utils-framework': 'Fixture utilities must include /framework path'
 };
 
 // Get the base URL depending on environment
@@ -251,6 +252,11 @@ const PRValidator: React.FC = () => {
     return false;
   };
   
+  // Helper function to determine if a file is an e2e file
+  const isE2eFile = (filename: string) => {
+    return filename.startsWith('e2e/');
+  };
+  
   // Get issues for a specific file
   const getIssuesForFile = (filename: string) => {
     if (loading) {
@@ -284,15 +290,25 @@ const PRValidator: React.FC = () => {
 
   // Get current files to display (either from live updates or final results)
   const getFilesToDisplay = () => {
+    let files: string[] = [];
+    
     if (loading) {
-      return processedFiles;
+      files = [...processedFiles];
+    } else if (results) {
+      files = [...results.checkedFiles];
     }
     
-    if (results) {
-      return results.checkedFiles;
-    }
-    
-    return [];
+    // Sort files so that e2e files appear at the top and non-e2e files at the bottom
+    return files.sort((a, b) => {
+      const aIsE2e = a.startsWith('e2e/');
+      const bIsE2e = b.startsWith('e2e/');
+      
+      if (aIsE2e && !bIsE2e) return -1; // a is e2e, b is not, so a comes first
+      if (!aIsE2e && bIsE2e) return 1;  // a is not e2e, b is, so b comes first
+      
+      // If both are e2e or both are not e2e, sort alphabetically
+      return a.localeCompare(b);
+    });
   };
   
   // Get current issues to display (either from live updates or final results)
@@ -445,20 +461,32 @@ const PRValidator: React.FC = () => {
                     const isExpanded = expandedFiles[file] || false;
                     const fileDiffLink = getFileDiffLink(file);
                     const isCopied = copiedFile === file;
+                    const isE2e = isE2eFile(file);
                     
                     return (
                       <li 
                         key={index}
-                        className={`border rounded ${hasIssue ? 'border-amber-300' : 'border-gray-200'}`}
+                        className={`border rounded ${hasIssue ? 'border-amber-300' : 'border-gray-200'} ${!isE2e ? 'opacity-60' : ''}`}
                       >
                         <div 
                           className={`p-3 flex justify-between items-center ${hasIssue ? 'bg-amber-50' : ''}`}
                         >
                           <div className="flex items-center flex-grow cursor-pointer" onClick={() => toggleFileExpanded(file)}>
-                            <span className={`mr-2 ${hasIssue ? 'text-amber-600' : 'text-green-600'}`}>
-                              {hasIssue ? '⚠️' : '✓'}
+                            {isE2e ? (
+                              <span className={`mr-2 ${hasIssue ? 'text-amber-600' : 'text-green-600'}`}>
+                                {hasIssue ? '⚠️' : '✓'}
+                              </span>
+                            ) : (
+                              <span className="mr-2 text-gray-400" title="Not an e2e file, validation skipped">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                </svg>
+                              </span>
+                            )}
+                            <span className={`break-all ${hasIssue ? 'text-amber-800 font-medium' : ''}`}>
+                              {file}
+                              {!isE2e && <span className="ml-2 text-xs text-gray-500">(validation skipped)</span>}
                             </span>
-                            <span className={`break-all ${hasIssue ? 'text-amber-800 font-medium' : ''}`}>{file}</span>
                           </div>
                           <div className="flex items-center ml-2">
                             {/* Copy Button */}
@@ -494,169 +522,181 @@ const PRValidator: React.FC = () => {
                         
                         {isExpanded && (
                           <div className="border-t p-3 bg-gray-50">
-                            <div className="mb-2 font-medium">Checks:</div>
-                            <div className="pl-4 border-l-4 border-gray-300 space-y-4">
-                              {/* Assertions framework path check */}
-                              <div className="mb-2">
-                                <div className="flex items-center">
-                                  <span className={`mr-2 ${hasIssuesForCheckType(file, 'assertions-framework') ? 'text-amber-600' : 'text-green-600'}`}>
-                                    {hasIssuesForCheckType(file, 'assertions-framework') ? '⚠️' : '✓'}
-                                  </span>
-                                  <span>{CHECK_DESCRIPTIONS['assertions-framework']}</span>
+                            {!isE2e ? (
+                              <div className="flex items-center text-gray-500">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>This file is not in the e2e/ directory. Validation checks are skipped for non-e2e files.</span>
+                              </div>
+                            ) : (
+                              <div className="mb-2 font-medium">Checks:</div>
+                            )}
+                            
+                            {isE2e && (
+                              <div className="pl-4 border-l-4 border-gray-300 space-y-4">
+                                {/* Assertions framework path check */}
+                                <div className="mb-2">
+                                  <div className="flex items-center">
+                                    <span className={`mr-2 ${hasIssuesForCheckType(file, 'assertions-framework') ? 'text-amber-600' : 'text-green-600'}`}>
+                                      {hasIssuesForCheckType(file, 'assertions-framework') ? '⚠️' : '✓'}
+                                    </span>
+                                    <span>{CHECK_DESCRIPTIONS['assertions-framework']}</span>
+                                  </div>
+                                  
+                                  {hasIssuesForCheckType(file, 'assertions-framework') && (
+                                    <div className="mt-2 pl-6">
+                                      <span className="text-sm font-medium">Found issues:</span>
+                                      <ul className="list-disc pl-5 space-y-1 mt-1 text-sm">
+                                        {getIssuesByCheckType(file, 'assertions-framework').map((issue, idx) => (
+                                          <li key={idx}>
+                                            Line {issue.line}: <code className="bg-amber-50 p-1 rounded">{issue.importStatement}</code>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
                                 </div>
                                 
-                                {hasIssuesForCheckType(file, 'assertions-framework') && (
-                                  <div className="mt-2 pl-6">
-                                    <span className="text-sm font-medium">Found issues:</span>
-                                    <ul className="list-disc pl-5 space-y-1 mt-1 text-sm">
-                                      {getIssuesByCheckType(file, 'assertions-framework').map((issue, idx) => (
-                                        <li key={idx}>
-                                          Line {issue.line}: <code className="bg-amber-50 p-1 rounded">{issue.importStatement}</code>
-                                        </li>
-                                      ))}
-                                    </ul>
+                                {/* Assertions no .ts extension check */}
+                                <div className="mb-2">
+                                  <div className="flex items-center">
+                                    <span className={`mr-2 ${hasIssuesForCheckType(file, 'assertions-no-ts') ? 'text-amber-600' : 'text-green-600'}`}>
+                                      {hasIssuesForCheckType(file, 'assertions-no-ts') ? '⚠️' : '✓'}
+                                    </span>
+                                    <span>{CHECK_DESCRIPTIONS['assertions-no-ts']}</span>
                                   </div>
-                                )}
-                              </div>
-                              
-                              {/* Assertions no .ts extension check */}
-                              <div className="mb-2">
-                                <div className="flex items-center">
-                                  <span className={`mr-2 ${hasIssuesForCheckType(file, 'assertions-no-ts') ? 'text-amber-600' : 'text-green-600'}`}>
-                                    {hasIssuesForCheckType(file, 'assertions-no-ts') ? '⚠️' : '✓'}
-                                  </span>
-                                  <span>{CHECK_DESCRIPTIONS['assertions-no-ts']}</span>
+                                  
+                                  {hasIssuesForCheckType(file, 'assertions-no-ts') && (
+                                    <div className="mt-2 pl-6">
+                                      <span className="text-sm font-medium">Found issues:</span>
+                                      <ul className="list-disc pl-5 space-y-1 mt-1 text-sm">
+                                        {getIssuesByCheckType(file, 'assertions-no-ts').map((issue, idx) => (
+                                          <li key={idx}>
+                                            Line {issue.line}: <code className="bg-amber-50 p-1 rounded">{issue.importStatement}</code>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
                                 </div>
                                 
-                                {hasIssuesForCheckType(file, 'assertions-no-ts') && (
-                                  <div className="mt-2 pl-6">
-                                    <span className="text-sm font-medium">Found issues:</span>
-                                    <ul className="list-disc pl-5 space-y-1 mt-1 text-sm">
-                                      {getIssuesByCheckType(file, 'assertions-no-ts').map((issue, idx) => (
-                                        <li key={idx}>
-                                          Line {issue.line}: <code className="bg-amber-50 p-1 rounded">{issue.importStatement}</code>
-                                        </li>
-                                      ))}
-                                    </ul>
+                                {/* Gestures framework path check */}
+                                <div className="mb-2">
+                                  <div className="flex items-center">
+                                    <span className={`mr-2 ${hasIssuesForCheckType(file, 'gestures-framework') ? 'text-amber-600' : 'text-green-600'}`}>
+                                      {hasIssuesForCheckType(file, 'gestures-framework') ? '⚠️' : '✓'}
+                                    </span>
+                                    <span>{CHECK_DESCRIPTIONS['gestures-framework']}</span>
                                   </div>
-                                )}
-                              </div>
-                              
-                              {/* Gestures framework path check */}
-                              <div className="mb-2">
-                                <div className="flex items-center">
-                                  <span className={`mr-2 ${hasIssuesForCheckType(file, 'gestures-framework') ? 'text-amber-600' : 'text-green-600'}`}>
-                                    {hasIssuesForCheckType(file, 'gestures-framework') ? '⚠️' : '✓'}
-                                  </span>
-                                  <span>{CHECK_DESCRIPTIONS['gestures-framework']}</span>
+                                  
+                                  {hasIssuesForCheckType(file, 'gestures-framework') && (
+                                    <div className="mt-2 pl-6">
+                                      <span className="text-sm font-medium">Found issues:</span>
+                                      <ul className="list-disc pl-5 space-y-1 mt-1 text-sm">
+                                        {getIssuesByCheckType(file, 'gestures-framework').map((issue, idx) => (
+                                          <li key={idx}>
+                                            Line {issue.line}: <code className="bg-amber-50 p-1 rounded">{issue.importStatement}</code>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
                                 </div>
                                 
-                                {hasIssuesForCheckType(file, 'gestures-framework') && (
-                                  <div className="mt-2 pl-6">
-                                    <span className="text-sm font-medium">Found issues:</span>
-                                    <ul className="list-disc pl-5 space-y-1 mt-1 text-sm">
-                                      {getIssuesByCheckType(file, 'gestures-framework').map((issue, idx) => (
-                                        <li key={idx}>
-                                          Line {issue.line}: <code className="bg-amber-50 p-1 rounded">{issue.importStatement}</code>
-                                        </li>
-                                      ))}
-                                    </ul>
+                                {/* Fixtures framework path check */}
+                                <div className="mb-2">
+                                  <div className="flex items-center">
+                                    <span className={`mr-2 ${hasIssuesForCheckType(file, 'fixtures-framework') ? 'text-amber-600' : 'text-green-600'}`}>
+                                      {hasIssuesForCheckType(file, 'fixtures-framework') ? '⚠️' : '✓'}
+                                    </span>
+                                    <span>{CHECK_DESCRIPTIONS['fixtures-framework']}</span>
                                   </div>
-                                )}
-                              </div>
-                              
-                              {/* Getter method types check */}
-                              <div className="mb-2">
-                                <div className="flex items-center">
-                                  <span className={`mr-2 ${hasIssuesForCheckType(file, 'getter-type') ? 'text-amber-600' : 'text-green-600'}`}>
-                                    {hasIssuesForCheckType(file, 'getter-type') ? '⚠️' : '✓'}
-                                  </span>
-                                  <span>{CHECK_DESCRIPTIONS['getter-type']}</span>
+                                  
+                                  {hasIssuesForCheckType(file, 'fixtures-framework') && (
+                                    <div className="mt-2 pl-6">
+                                      <span className="text-sm font-medium">Found issues:</span>
+                                      <ul className="list-disc pl-5 space-y-1 mt-1 text-sm">
+                                        {getIssuesByCheckType(file, 'fixtures-framework').map((issue, idx) => (
+                                          <li key={idx}>
+                                            Line {issue.line}: <code className="bg-amber-50 p-1 rounded">{issue.importStatement}</code>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
                                 </div>
-                                
-                                {hasIssuesForCheckType(file, 'getter-type') && (
-                                  <div className="mt-2 pl-6">
-                                    <span className="text-sm font-medium">Found issues:</span>
-                                    <ul className="list-disc pl-5 space-y-1 mt-1 text-sm">
-                                      {getIssuesByCheckType(file, 'getter-type').map((issue, idx) => (
-                                        <li key={idx}>
-                                          Line {issue.line}: <code className="bg-amber-50 p-1 rounded">{issue.importStatement}</code>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-                              </div>
 
-                              {/* Fixtures framework path check */}
-                              <div className="mb-2">
-                                <div className="flex items-center">
-                                  <span className={`mr-2 ${hasIssuesForCheckType(file, 'fixtures-framework') ? 'text-amber-600' : 'text-green-600'}`}>
-                                    {hasIssuesForCheckType(file, 'fixtures-framework') ? '⚠️' : '✓'}
-                                  </span>
-                                  <span>{CHECK_DESCRIPTIONS['fixtures-framework']}</span>
-                                </div>
-                                
-                                {hasIssuesForCheckType(file, 'fixtures-framework') && (
-                                  <div className="mt-2 pl-6">
-                                    <span className="text-sm font-medium">Found issues:</span>
-                                    <ul className="list-disc pl-5 space-y-1 mt-1 text-sm">
-                                      {getIssuesByCheckType(file, 'fixtures-framework').map((issue, idx) => (
-                                        <li key={idx}>
-                                          Line {issue.line}: <code className="bg-amber-50 p-1 rounded">{issue.importStatement}</code>
-                                        </li>
-                                      ))}
-                                    </ul>
+                                {/* Test withFixtures check */}
+                                <div className="mb-2">
+                                  <div className="flex items-center">
+                                    <span className={`mr-2 ${hasIssuesForCheckType(file, 'test-withfixtures') ? 'text-amber-600' : 'text-green-600'}`}>
+                                      {hasIssuesForCheckType(file, 'test-withfixtures') ? '⚠️' : '✓'}
+                                    </span>
+                                    <span>{CHECK_DESCRIPTIONS['test-withfixtures']}</span>
                                   </div>
-                                )}
-                              </div>
+                                  
+                                  {hasIssuesForCheckType(file, 'test-withfixtures') && (
+                                    <div className="mt-2 pl-6">
+                                      <span className="text-sm font-medium">Found issues:</span>
+                                      <ul className="list-disc pl-5 space-y-1 mt-1 text-sm">
+                                        {getIssuesByCheckType(file, 'test-withfixtures').map((issue, idx) => (
+                                          <li key={idx}>
+                                            Line {issue.line}: <code className="bg-amber-50 p-1 rounded">{issue.importStatement}</code>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                </div>
 
-                              {/* Test withFixtures check */}
-                              <div className="mb-2">
-                                <div className="flex items-center">
-                                  <span className={`mr-2 ${hasIssuesForCheckType(file, 'test-withfixtures') ? 'text-amber-600' : 'text-green-600'}`}>
-                                    {hasIssuesForCheckType(file, 'test-withfixtures') ? '⚠️' : '✓'}
-                                  </span>
-                                  <span>{CHECK_DESCRIPTIONS['test-withfixtures']}</span>
-                                </div>
-                                
-                                {hasIssuesForCheckType(file, 'test-withfixtures') && (
-                                  <div className="mt-2 pl-6">
-                                    <span className="text-sm font-medium">Found issues:</span>
-                                    <ul className="list-disc pl-5 space-y-1 mt-1 text-sm">
-                                      {getIssuesByCheckType(file, 'test-withfixtures').map((issue, idx) => (
-                                        <li key={idx}>
-                                          Line {issue.line}: <code className="bg-amber-50 p-1 rounded">{issue.importStatement}</code>
-                                        </li>
-                                      ))}
-                                    </ul>
+                                {/* Matchers framework path check */}
+                                <div className="mb-2">
+                                  <div className="flex items-center">
+                                    <span className={`mr-2 ${hasIssuesForCheckType(file, 'matchers-framework') ? 'text-amber-600' : 'text-green-600'}`}>
+                                      {hasIssuesForCheckType(file, 'matchers-framework') ? '⚠️' : '✓'}
+                                    </span>
+                                    <span>{CHECK_DESCRIPTIONS['matchers-framework']}</span>
                                   </div>
-                                )}
-                              </div>
+                                  
+                                  {hasIssuesForCheckType(file, 'matchers-framework') && (
+                                    <div className="mt-2 pl-6">
+                                      <span className="text-sm font-medium">Found issues:</span>
+                                      <ul className="list-disc pl-5 space-y-1 mt-1 text-sm">
+                                        {getIssuesByCheckType(file, 'matchers-framework').map((issue, idx) => (
+                                          <li key={idx}>
+                                            Line {issue.line}: <code className="bg-amber-50 p-1 rounded">{issue.importStatement}</code>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                </div>
 
-                              {/* Matchers framework path check */}
-                              <div className="mb-2">
-                                <div className="flex items-center">
-                                  <span className={`mr-2 ${hasIssuesForCheckType(file, 'matchers-framework') ? 'text-amber-600' : 'text-green-600'}`}>
-                                    {hasIssuesForCheckType(file, 'matchers-framework') ? '⚠️' : '✓'}
-                                  </span>
-                                  <span>{CHECK_DESCRIPTIONS['matchers-framework']}</span>
-                                </div>
-                                
-                                {hasIssuesForCheckType(file, 'matchers-framework') && (
-                                  <div className="mt-2 pl-6">
-                                    <span className="text-sm font-medium">Found issues:</span>
-                                    <ul className="list-disc pl-5 space-y-1 mt-1 text-sm">
-                                      {getIssuesByCheckType(file, 'matchers-framework').map((issue, idx) => (
-                                        <li key={idx}>
-                                          Line {issue.line}: <code className="bg-amber-50 p-1 rounded">{issue.importStatement}</code>
-                                        </li>
-                                      ))}
-                                    </ul>
+                                {/* Fixture utils framework path check */}
+                                <div className="mb-2">
+                                  <div className="flex items-center">
+                                    <span className={`mr-2 ${hasIssuesForCheckType(file, 'fixture-utils-framework') ? 'text-amber-600' : 'text-green-600'}`}>
+                                      {hasIssuesForCheckType(file, 'fixture-utils-framework') ? '⚠️' : '✓'}
+                                    </span>
+                                    <span>{CHECK_DESCRIPTIONS['fixture-utils-framework']}</span>
                                   </div>
-                                )}
+                                  
+                                  {hasIssuesForCheckType(file, 'fixture-utils-framework') && (
+                                    <div className="mt-2 pl-6">
+                                      <span className="text-sm font-medium">Found issues:</span>
+                                      <ul className="list-disc pl-5 space-y-1 mt-1 text-sm">
+                                        {getIssuesByCheckType(file, 'fixture-utils-framework').map((issue, idx) => (
+                                          <li key={idx}>
+                                            Line {issue.line}: <code className="bg-amber-50 p-1 rounded">{issue.importStatement}</code>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            </div>
+                            )}
                           </div>
                         )}
                       </li>

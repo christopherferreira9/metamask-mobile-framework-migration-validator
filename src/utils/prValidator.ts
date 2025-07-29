@@ -174,13 +174,59 @@ const validateFileContent = (file: any): Issue[] => {
     // Check for fixture-related imports without /framework in the path
     for (const fixtureImport of FIXTURE_IMPORTS) {
       if (cleanLine.includes('import') && cleanLine.includes(fixtureImport) && !cleanLine.includes('/framework')) {
-        issues.push({
-          file: file.filename,
-          line: getOriginalLineNumber(lines, index),
-          importStatement: cleanLine,
-          checkType: 'fixture-utils-framework'
-        });
-        break; // Only add one issue per line even if multiple fixture imports are found
+        // For multiline imports, we need to check if this is part of a multiline import statement
+        // that might have the framework path in another line
+        let isMultilineImport = false;
+        let hasFrameworkPath = false;
+        
+        // Check if this line is the start of a multiline import (has opening brace but no closing brace)
+        if (cleanLine.includes('{') && !cleanLine.includes('}')) {
+          isMultilineImport = true;
+          
+          // Look ahead for the closing brace and check if any line contains '/framework'
+          let j = index;
+          while (j < addedLines.length) {
+            const nextLine = addedLines[j].substring(1).trim();
+            if (nextLine.includes('/framework')) {
+              hasFrameworkPath = true;
+              break;
+            }
+            if (nextLine.includes('}')) {
+              break;
+            }
+            j++;
+          }
+        }
+        
+        // Look behind for the import statement if this line contains the closing brace
+        if (cleanLine.includes('}') && !cleanLine.includes('import')) {
+          isMultilineImport = true;
+          
+          // Look behind for the import statement
+          let j = index;
+          while (j >= 0) {
+            const prevLine = addedLines[j].substring(1).trim();
+            if (prevLine.includes('import') && prevLine.includes('/framework')) {
+              hasFrameworkPath = true;
+              break;
+            }
+            if (prevLine.includes('import')) {
+              break;
+            }
+            j--;
+          }
+        }
+        
+        // Only add an issue if it's not part of a multiline import with framework path
+        if (!isMultilineImport || (isMultilineImport && !hasFrameworkPath)) {
+          issues.push({
+            file: file.filename,
+            line: getOriginalLineNumber(lines, index),
+            importStatement: cleanLine,
+            checkType: 'fixture-utils-framework'
+          });
+          break; // Only add one issue per line even if multiple fixture imports are found
+        }
       }
     }
     
@@ -249,17 +295,64 @@ const validateTestFile = (file: any, lines: string[], issues: Issue[]): void => 
     const lineIndex = lines.indexOf(testLine);
     const testLineClean = testLine.substring(1).trim();
     
+    // Check if withFixtures is already in the test line itself
+    if (testLineClean.includes('withFixtures')) {
+      return; // withFixtures is already in the test declaration line
+    }
+    
     // Find the closing parenthesis or the end of the block
-    // This is a simplified approach - in a real implementation, you might need more sophisticated parsing
     let foundWithFixtures = false;
     let blockEndFound = false;
     let currentLine = lineIndex;
     let blockDepth = 0;
+    let parenDepth = 0;
     
-    // Count opening braces in the test line itself
+    // Count opening parentheses and braces in the test line itself
     for (const char of testLineClean) {
+      if (char === '(') parenDepth++;
+      if (char === ')') parenDepth--;
       if (char === '{') blockDepth++;
       if (char === '}') blockDepth--;
+    }
+    
+    // If the test declaration spans multiple lines, we need to find where it ends
+    if (parenDepth > 0) {
+      // Look for the closing parenthesis of the test declaration
+      let declarationEndFound = false;
+      let tempLine = lineIndex;
+      
+      while (tempLine < lines.length - 1 && !declarationEndFound && parenDepth > 0) {
+        tempLine++;
+        const nextLine = lines[tempLine];
+        
+        // Skip lines that aren't added in the PR
+        if (!nextLine.startsWith('+') && !nextLine.startsWith('-')) continue;
+        
+        const cleanNextLine = nextLine.startsWith('+') ? nextLine.substring(1).trim() : nextLine.substring(1).trim();
+        
+        // Check for withFixtures in the test declaration
+        if (cleanNextLine.includes('withFixtures')) {
+          foundWithFixtures = true;
+          break;
+        }
+        
+        // Track parenthesis depth
+        for (const char of cleanNextLine) {
+          if (char === '(') parenDepth++;
+          if (char === ')') {
+            parenDepth--;
+            if (parenDepth === 0) {
+              declarationEndFound = true;
+              break;
+            }
+          }
+        }
+      }
+    }
+    
+    // If we already found withFixtures in the declaration, no need to check the block
+    if (foundWithFixtures) {
+      return;
     }
     
     // Look ahead for withFixtures until we find the end of the block
@@ -267,14 +360,22 @@ const validateTestFile = (file: any, lines: string[], issues: Issue[]): void => 
       currentLine++;
       const nextLine = lines[currentLine];
       
-      // Skip lines that aren't added in the PR
-      if (!nextLine.startsWith('+') || nextLine.startsWith('+++')) continue;
+      // Consider both added and context lines (not removed lines)
+      if (nextLine.startsWith('-')) continue;
       
-      const cleanNextLine = nextLine.substring(1).trim();
+      // For added lines, remove the '+' prefix
+      const cleanNextLine = nextLine.startsWith('+') ? nextLine.substring(1).trim() : nextLine.trim();
       
-      // Check for withFixtures reference
-      if (cleanNextLine.includes('withFixtures')) {
+      // Check for withFixtures reference - be more specific about the pattern
+      // Look for withFixtures followed by opening parenthesis or dot
+      if (
+        cleanNextLine.includes('withFixtures(') || 
+        cleanNextLine.includes('withFixtures.') ||
+        cleanNextLine.includes('withFixtures (') ||
+        /\bwithFixtures\s*\(/.test(cleanNextLine)
+      ) {
         foundWithFixtures = true;
+        break;
       }
       
       // Track block depth
